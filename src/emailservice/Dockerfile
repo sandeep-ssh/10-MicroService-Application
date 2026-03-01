@@ -12,32 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM python:3.10.8-slim@sha256:abf96998af340975c26177b900c10cfb40716c985325303c063736f0f5cf3171 as base
+# ========================
+# Base Image
+# ========================
+FROM python:3.10-slim AS base
 
-FROM base as builder
+# ========================
+# Builder Stage
+# ========================
+FROM base AS builder
 
 RUN apt-get -qq update \
     && apt-get install -y --no-install-recommends \
         wget g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# get packages
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+WORKDIR /app
 
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --prefix=/install -r requirements.txt
+
+# ========================
+# Runtime Stage
+# ========================
 FROM base
+
 # Enable unbuffered logging
 ENV PYTHONUNBUFFERED=1
-# Enable Profiler
 ENV ENABLE_PROFILER=1
 
-WORKDIR /email_server
+WORKDIR /app
 
-# Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.10/ /usr/local/lib/python3.10/
+# Copy installed packages
+COPY --from=builder /install /usr/local
 
-# Add the application
+# Add application code
 COPY . .
 
 EXPOSE 8080
-ENTRYPOINT [ "python", "email_server.py" ]
+ENTRYPOINT ["python", "email_server.py"]

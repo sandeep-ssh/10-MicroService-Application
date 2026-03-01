@@ -12,31 +12,45 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.21.3-alpine@sha256:926f7f7e1ab8509b4e91d5ec6d5916ebb45155b0c8920291ba9f361d65385806 as builder
-RUN apk add --no-cache ca-certificates git
-RUN apk add build-base
+# ========================
+# Build Stage
+# ========================
+FROM golang:1.21-alpine AS builder
+
+RUN apk add --no-cache ca-certificates git build-base
+
 WORKDIR /src
 
-# restore dependencies
+# Restore dependencies first (better caching)
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-# Skaffold passes in debug-oriented compiler flags
-ARG SKAFFOLD_GO_GCFLAGS
-RUN go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /checkoutservice .
+# Ensure static binary for alpine
+ENV CGO_ENABLED=0
 
-FROM alpine:3.18.4@sha256:eece025e432126ce23f223450a0326fbebde39cdf496a85d8c016293fc851978
+# Skaffold debug flags (optional)
+ARG SKAFFOLD_GO_GCFLAGS
+
+RUN GOOS=linux GOARCH=$(go env GOARCH) \
+    go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" \
+    -o /checkoutservice .
+
+
+# ========================
+# Runtime Stage
+# ========================
+FROM alpine:3.18
+
 RUN apk add --no-cache ca-certificates
 
-WORKDIR /src
-COPY --from=builder /checkoutservice /src/checkoutservice
+WORKDIR /app
 
-# Definition of this variable is used by 'skaffold debug' to identify a golang binary.
-# Default behavior - a failure prints a stack trace for the current goroutine.
-# See https://golang.org/pkg/runtime/
+COPY --from=builder /checkoutservice .
+
 ENV GOTRACEBACK=single
 
 EXPOSE 5050
-ENTRYPOINT ["/src/checkoutservice"]
+
+ENTRYPOINT ["./checkoutservice"]
