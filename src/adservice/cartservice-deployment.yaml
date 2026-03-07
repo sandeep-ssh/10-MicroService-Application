@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: sandeepssh/cartservice:latest
+        image: sandeepk8.azurecr.io/cartservice:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 7070
