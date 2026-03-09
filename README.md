@@ -23,7 +23,7 @@ This project demonstrates the end-to-end deployment of **Google's Online Boutiqu
 
 ## 🏗️ Architecture Overview
 
-![Azure Architecture Diagram](./assets/azurecicd.png)
+![Azure Architecture Diagram](./assets/azure-micro.png)
 
 
 ```
