@@ -12,41 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ========================
 # Builder Stage
-# ========================
-FROM golang:1.21.3-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 RUN apk add --no-cache ca-certificates git build-base
-
 WORKDIR /src
 
-# Restore dependencies
 COPY go.mod go.sum ./
 RUN go mod download
+
 COPY . .
 
-# Skaffold passes debug flags if needed
 ARG SKAFFOLD_GO_GCFLAGS
 RUN go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /go/bin/frontend .
 
-# ========================
 # Runtime Stage
-# ========================
 FROM alpine:3.18 AS release
 
 RUN apk add --no-cache ca-certificates \
-    busybox-extras net-tools bind-tools
+    busybox-extras net-tools bind-tools wget
+
+# Install grpc_health_probe for ARM64
+RUN wget -qO/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /bin/grpc_health_probe
 
 WORKDIR /src
 
-# Copy binary and assets
 COPY --from=builder /go/bin/frontend /src/server
 COPY ./templates ./templates
 COPY ./static ./static
 
-# Go stack trace setting
 ENV GOTRACEBACK=single
-
 EXPOSE 8080
 ENTRYPOINT ["/src/server"]

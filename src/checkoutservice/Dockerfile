@@ -12,45 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ========================
-# Build Stage
-# ========================
 FROM golang:1.21-alpine AS builder
 
-RUN apk add --no-cache ca-certificates git build-base
+RUN apk add --no-cache ca-certificates git build-base wget
 
 WORKDIR /src
 
-# Restore dependencies first (better caching)
+RUN wget -qO/go/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /go/bin/grpc_health_probe
+
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-# Ensure static binary for alpine
-ENV CGO_ENABLED=0
-
-# Skaffold debug flags (optional)
 ARG SKAFFOLD_GO_GCFLAGS
+RUN go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /go/bin/checkoutservice .
 
-RUN GOOS=linux GOARCH=$(go env GOARCH) \
-    go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" \
-    -o /checkoutservice .
-
-
-# ========================
-# Runtime Stage
-# ========================
 FROM alpine:3.18
 
 RUN apk add --no-cache ca-certificates
 
-WORKDIR /app
+WORKDIR /src
 
-COPY --from=builder /checkoutservice .
-
-ENV GOTRACEBACK=single
+COPY --from=builder /go/bin/checkoutservice /src/checkoutservice
+COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
 
 EXPOSE 5050
 
-ENTRYPOINT ["./checkoutservice"]
+ENTRYPOINT ["/src/checkoutservice"]

@@ -12,19 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-F# ========================
-# Base Image
-# ========================
-FROM node:20-alpine AS base
+FROM node:20.8.0-alpine AS base
 
-
-# ========================
-# Builder Stage
-# ========================
 FROM base AS builder
 
-# Some packages (e.g. @google-cloud/profiler) need build deps
-RUN apk add --no-cache \
+RUN apk add --update --no-cache \
     python3 \
     make \
     g++
@@ -33,18 +25,25 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# Production dependencies only
-RUN npm install --omit=dev
-
+# Ignore pprof as it doesn't support ARM64 musl
+RUN npm ci --omit=dev --ignore-scripts
 
 # ========================
 # Runtime Stage
 # ========================
-FROM base
+FROM node:20-alpine
+
+RUN apk add --no-cache wget
+
+# Install grpc_health_probe for ARM64
+RUN wget -qO/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /bin/grpc_health_probe
 
 WORKDIR /usr/src/app
 
 COPY --from=builder /usr/src/app/node_modules ./node_modules
+
 COPY . .
 
 EXPOSE 7000

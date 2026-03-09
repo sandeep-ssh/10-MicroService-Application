@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# -------- Builder Stage --------
-FROM eclipse-temurin:19-jdk AS builder
+FROM gradle:8.5-jdk21 AS builder
 
 WORKDIR /app
 
@@ -21,23 +20,25 @@ COPY ["build.gradle", "gradlew", "./"]
 COPY gradle gradle
 RUN chmod +x gradlew
 RUN ./gradlew downloadRepos
-
 COPY . .
 RUN chmod +x gradlew
 RUN ./gradlew installDist
 
-# -------- Runtime Stage --------
-FROM eclipse-temurin:19-jre
+RUN wget -qO/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /bin/grpc_health_probe
 
-RUN apt-get update && apt-get install -y ca-certificates wget && rm -rf /var/lib/apt/lists/*
+FROM eclipse-temurin:21-jre
 
-# Download Stackdriver Profiler Java agent
-RUN mkdir -p /opt/cprof && \
-    wget -q -O- https://storage.googleapis.com/cloud-profiler/java/latest/profiler_java_agent.tar.gz \
-    | tar xzv -C /opt/cprof
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/* \
+    && wget -qO/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /bin/grpc_health_probe
 
 WORKDIR /app
+
 COPY --from=builder /app .
 
 EXPOSE 9555
+
 ENTRYPOINT ["/app/build/install/hipstershop/bin/AdService"]

@@ -12,35 +12,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ========================
 # Base Stage
-FROM python:3.10.8-slim AS base
+# ========================
+FROM python:3.11-slim AS base
 
+# ========================
 # Builder Stage
+# ========================
 FROM base AS builder
 
 RUN apt-get -qq update \
-    && apt-get install -y --no-install-recommends wget g++ \
+    && apt-get install -y --no-install-recommends \
+        wget g++ gcc python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt .
-RUN pip install -r requirements.txt
 
+# Skip google-cloud-profiler as it doesn't support ARM64
+RUN grep -v "google-cloud-profiler" requirements.txt \
+    | grep -v "^#" \
+    | grep -v "^$" \
+    > /tmp/requirements_filtered.txt \
+    && pip install --prefix="/install" -r /tmp/requirements_filtered.txt
+
+# ========================
 # Runtime Stage
+# ========================
 FROM base
 
-# Enable unbuffered logging
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
+# Install grpc_health_probe for ARM64
+RUN wget -qO/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /bin/grpc_health_probe
+
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /recommendationservice
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.10/ /usr/local/lib/python3.10/
+COPY --from=builder /install /usr/local
 
-# Add application code
 COPY . .
 
-# Set service port
 ENV PORT=8080
 EXPOSE 8080
 

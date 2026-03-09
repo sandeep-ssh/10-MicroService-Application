@@ -13,36 +13,40 @@
 # limitations under the License.
 
 # ========================
-# Build Stage
+# Builder Stage
 # ========================
-FROM golang:1.21.3-alpine AS builder
+FROM golang:1.21-alpine AS builder
+
 RUN apk add --no-cache ca-certificates git build-base
 
 WORKDIR /src
 
-# Restore dependencies
 COPY go.mod go.sum ./
 RUN go mod download
+
 COPY . .
 
-# Skaffold passes in debug-oriented compiler flags
 ARG SKAFFOLD_GO_GCFLAGS
 RUN go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /go/bin/shippingservice .
+
+# Download grpc_health_probe
+RUN wget -qO/go/bin/grpc_health_probe \
+    https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.19/grpc_health_probe-linux-arm64 \
+    && chmod +x /go/bin/grpc_health_probe
 
 # ========================
 # Runtime Stage
 # ========================
 FROM alpine:3.18
+
 RUN apk add --no-cache ca-certificates
 
 WORKDIR /src
-COPY --from=builder /go/bin/shippingservice /src/shippingservice
 
-# Service port
+COPY --from=builder /go/bin/shippingservice /src/shippingservice
+COPY --from=builder /go/bin/grpc_health_probe /bin/grpc_health_probe
+
 ENV APP_PORT=50051
 EXPOSE 50051
-
-# For Go debug traces
-ENV GOTRACEBACK=single
 
 ENTRYPOINT ["/src/shippingservice"]
