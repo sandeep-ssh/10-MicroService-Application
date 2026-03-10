@@ -1,4 +1,4 @@
-# 🛒 Cloud-Native Microservices on Azure AKS (ARM64) — End-to-End DevSecOps Pipeline
+# 🛒 Cloud-Native Microservices on Azure AKS (ARM64) — End-to-End DevOps Pipeline
 
 > Deploying Google's Online Boutique (10 microservices) on Azure Kubernetes Service with ARM64 nodes, a fully automated Azure Pipelines CI/CD pipeline, SonarQube static analysis, and Azure Container Registry — built entirely from scratch on a self-hosted agent.
 
@@ -19,11 +19,15 @@ This project demonstrates the end-to-end deployment of **Google's Online Boutiqu
 | **Languages** | Go, Python, Java, Node.js, C# (.NET) |
 | **Infrastructure** | Azure (AKS, ACR), AWS (EC2 agent) |
 
+![Step by Step Implementation Walkthrough available here](./assets/CloudNativeMicroservicesonAzureAKS.pdf)
 ---
 
 ## 🏗️ Architecture Overview
 
 ![Azure Architecture Diagram](./assets/azure-micro.png)
+
+
+
 
 
 ```
